@@ -5,6 +5,8 @@ import pybullet as p
 import time
 import  cv2
 
+
+
 if __name__ == "__main__":
     env = Environment()
 
@@ -17,7 +19,7 @@ if __name__ == "__main__":
         time.sleep(1/240)
 
 
-        rgb, depth = env.camera.get_camera_img_float(env.cameraPos, env.cameraOrn)
+        rgb, depth = env.camera.get_camera_img_float()
         cv2.imshow("rgb", rgb)
 
         for object_id in env.objects:

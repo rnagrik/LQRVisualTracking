@@ -9,21 +9,42 @@ from scipy.spatial.transform import Rotation as Rot
 
 
 class Camera:
-    def __init__(self):
-        self.camera_width = 512                                             #image width
-        self.camera_height = 512                                            #image height
-        self.camera_fov = 120                                                #field of view of camera
+    def __init__(self, camera_position = [0, 0, 3], camera_orientation = [180, 0, 0]):
+
+        self.set_camera_position_orientation(camera_position, camera_orientation)
+        self.set_camera_settings()
+    
+    def set_camera_position_orientation(self,camera_position, camera_orientation):
+        """
+        This function sets the camera location.
+        camera_position: [x, y, z]
+        camera_orientation: [roll, pitch, yaw]
+        """
+        self.cameraPos = np.array(camera_position)
+        self.cameraOrn = Rot.from_euler('xyz', camera_orientation, degrees=True).as_matrix()
+    
+    def set_camera_settings(self, camera_width=512, camera_height=512, camera_fov=120, camera_near=0.02, camera_far=100):
+        """
+        This function sets the camera settings.
+        camera_width: int, image width
+        camera_height: int, image height
+        camera_fov: int, field of view of camera
+        camera_near: float, near clipping plane in meters, do not set non-zero
+        camera_far: float, far clipping plane in meters
+        """
+        self.camera_width = camera_width    
+        self.camera_height = camera_height  
+        self.camera_fov = camera_fov       
+        self.camera_near = camera_near
+        self.camera_far = camera_far
         self.camera_focal_depth = 0.5*self.camera_height/np.tan(0.5*np.pi/180*self.camera_fov) #focal depth in pixel space
-        self.camera_aspect = self.camera_width/self.camera_height                     #aspect ratio
-        self.camera_near = 0.02                                             #near clipping plane in meters, do not set non-zero
-        self.camera_far = 100
+        self.camera_aspect = self.camera_width/self.camera_height                              #aspect ratio
 
-
-    def get_camera_img_float(self,cameraPos, camereaOrn):
+    def get_camera_img_float(self):
         ''' Gets the image and depth map from a camera at a position cameraPos (3) and cameraOrn (3x3) in space. '''
-        __camera_view_matrix_opengl = p.computeViewMatrix(cameraEyePosition=cameraPos,
-                                                    cameraTargetPosition=cameraPos+camereaOrn[:,2],
-                                                    cameraUpVector=-camereaOrn[:,1])
+        __camera_view_matrix_opengl = p.computeViewMatrix(cameraEyePosition=self.cameraPos,
+                                                    cameraTargetPosition=self.cameraPos+self.cameraOrn[:,2],
+                                                    cameraUpVector=-self.cameraOrn[:,1])
 
         __camera_projection_matrix_opengl = p.computeProjectionMatrixFOV(self.camera_fov, self.camera_aspect, self.camera_near, self.camera_far)        
         width, height, rgbImg, nonlinDepthImg, _ = p.getCameraImage(self.camera_width, 
@@ -43,12 +64,12 @@ class Camera:
 
 class Environment:
     def __init__(self,time_step = 1/240):
-        self.client = p.connect(p.GUI)
+
         self.time_step = time_step
+        self.client = p.connect(p.GUI)
 
         # Set the path to the URDF files included with PyBullet
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
-
         p.resetSimulation()
         p.setTimeStep(self.time_step)
         p.setGravity(0, 0, -9.81)
@@ -56,25 +77,26 @@ class Environment:
 
         self.objects = []
         self.camera = Camera()
-        self.cameraPos = np.array([0, 0, 0.5])                              #camera position
-        self.cameraOrn = Rot.from_euler('xyz', [90, 0, 0], degrees=True).as_matrix() #camera orientation
+        self.cameraPos = self.camera.cameraPos
+        self.cameraOrn = self.camera.cameraOrn
 
-        
+
+    def change_camera_position_orientation(self, camera_position, camera_orientation):
+        self.camera.set_camera_position_orientation(camera_position, camera_orientation)
 
     def AddObject(self, dimension, position, orientation, color):
-
         """
         This function adds a box object to the environment.
         dimension: [box_length, box_width, box_depth]
         position: [x, y, z]
         orientation: [roll, pitch, yaw]
-        color: [r, g, b] # 0-1
+        color: [r, g, b] # range-> 0-1
         """
         
         [box_length, box_width, box_depth] = dimension
         object_center = position
         object_orientation = orientation
-        object_color = [*color,1]
+        object_color = [*color,1] 
 
         geomBox = p.createCollisionShape(p.GEOM_BOX, halfExtents=[box_length/2, box_width/2, box_depth/2])
         visualBox = p.createVisualShape(p.GEOM_BOX, halfExtents=[box_length/2, box_width/2, box_depth/2], rgbaColor=object_color)
@@ -92,7 +114,7 @@ class Environment:
         p.removeBody(object_id)
         self.objects.remove(object_id)
         
-    def MoveObject(self, object_id, position, orientation):
+    def MoveObject(self, object_id:int, position:list, orientation:list):
         """
         This function moves the object to the given position and orientation.
         """

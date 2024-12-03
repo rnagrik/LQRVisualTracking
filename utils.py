@@ -4,6 +4,10 @@ import pybullet as p
 def Trajectory(object_id,time:int,initial_position,initial_orientation):
     """
     This function returns the position and orientation of the object at a given time.
+    object_id: int, the id of the object
+    time: int, the current time
+    initial_position: list, the initial position of the object
+    initial_orientation: list, the initial orientation of the object
     """
     [x, y, z] = initial_position
     object_center=[x + object_id*np.sin(np.pi/2+time/10),
