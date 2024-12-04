@@ -7,22 +7,10 @@ import cv2
 from scipy.spatial.transform import Rotation as Rot
 
 
-
 class Camera:
-    def __init__(self, camera_position = [0, 0, 3], camera_orientation = [180, 0, 0]):
-
-        self.set_camera_position_orientation(camera_position, camera_orientation)
+    def __init__(self):
         self.set_camera_settings()
-    
-    def set_camera_position_orientation(self,camera_position, camera_orientation):
-        """
-        This function sets the camera location.
-        camera_position: [x, y, z]
-        camera_orientation: [roll, pitch, yaw]
-        """
-        self.cameraPos = np.array(camera_position)
-        self.cameraOrn = Rot.from_euler('xyz', camera_orientation, degrees=True).as_matrix()
-    
+
     def set_camera_settings(self, camera_width=512, camera_height=512, camera_fov=120, camera_near=0.02, camera_far=100):
         """
         This function sets the camera settings.
@@ -40,11 +28,11 @@ class Camera:
         self.camera_focal_depth = 0.5*self.camera_height/np.tan(0.5*np.pi/180*self.camera_fov) #focal depth in pixel space
         self.camera_aspect = self.camera_width/self.camera_height                              #aspect ratio
 
-    def get_camera_img_float(self):
+    def get_camera_img_float(self,cameraPos, cameraOrn):
         ''' Gets the image and depth map from a camera at a position cameraPos (3) and cameraOrn (3x3) in space. '''
-        __camera_view_matrix_opengl = p.computeViewMatrix(cameraEyePosition=self.cameraPos,
-                                                    cameraTargetPosition=self.cameraPos+self.cameraOrn[:,2],
-                                                    cameraUpVector=-self.cameraOrn[:,1])
+        __camera_view_matrix_opengl = p.computeViewMatrix(cameraEyePosition=cameraPos,
+                                                    cameraTargetPosition=cameraPos+cameraOrn[:,2],
+                                                    cameraUpVector=-cameraOrn[:,1])
 
         __camera_projection_matrix_opengl = p.computeProjectionMatrixFOV(self.camera_fov, self.camera_aspect, self.camera_near, self.camera_far)        
         width, height, rgbImg, nonlinDepthImg, _ = p.getCameraImage(self.camera_width, 
@@ -62,6 +50,61 @@ class Camera:
         return rgb_image, depth_image
 
 
+class RobotwithCamera():
+         
+    def __init__(self):
+        self.robot_id = p.loadURDF(os.path.join(pybullet_data.getDataPath(), "franka_panda/panda.urdf"),useFixedBase=True)
+        self.initialJointPos = [0,-np.pi/4,np.pi/4,-np.pi/4,np.pi/4,np.pi/4,np.pi/4,0,0,0,0,0]
+        self.numLinkJoints, self.active_joint_indices, self.numActiveJoints = self.initialize_robot()
+
+        self.camera_offset = 0.1 #offset camera in z direction to avoid grippers
+        self.camera = Camera()
+        
+        p.resetBasePositionAndOrientation(self.robot_id, [0, 0, 0], [0, 0, 0, 1])
+        p.stepSimulation() # need to do this to initialize robot
+
+
+    def initialize_robot(self):
+        # Get the number of joints and joint information
+        numLinkJoints = p.getNumJoints(self.robot_id) #includes passive joint
+        jointInfo = [p.getJointInfo(self.robot_id, i) for i in range(numLinkJoints)]
+        
+        # Get the active joint indices
+        active_joint_indices = []
+        for i in range(numLinkJoints):
+            if jointInfo[i][2]==p.JOINT_REVOLUTE:
+                active_joint_indices.append(jointInfo[i][0])
+        numActiveJoints = len(active_joint_indices) #exact number of active joints
+
+        # Reset the robot to initial joint positions
+        for i in range(numLinkJoints):
+            p.resetJointState(self.robot_id,i,self.initialJointPos[i])
+        
+        return numLinkJoints, active_joint_indices, numActiveJoints
+
+    def get_ee_position(self):
+        '''
+        Function to get the end effector position and orientation
+        '''
+        endEffectorIndex = self.numActiveJoints
+        endEffectorState = p.getLinkState(self.robot_id, endEffectorIndex)
+        endEffectorPos = np.array(endEffectorState[0])
+        endEffectorOrn = np.array(p.getMatrixFromQuaternion(endEffectorState[1])).reshape(3,3)
+        
+        #add an offset to get past the forceps
+        endEffectorPos += self.camera_offset*endEffectorOrn[:,2]
+        return endEffectorPos, endEffectorOrn
+    
+    def update_camera_feed(self):
+        '''
+        Function to update the feed from the camera
+        '''
+        cameraPos, cameraOrn = self.get_ee_position()
+        rgb, depth = self.camera.get_camera_img_float(cameraPos, cameraOrn)
+        return rgb, depth
+
+
+
 class Environment:
     def __init__(self,time_step = 1/240):
 
@@ -73,16 +116,10 @@ class Environment:
         p.resetSimulation()
         p.setTimeStep(self.time_step)
         p.setGravity(0, 0, -9.81)
-        p.loadURDF("plane.urdf")
+        p.loadURDF("plane.urdf") # Load the ground plane
 
         self.objects = []
-        self.camera = Camera()
-        self.cameraPos = self.camera.cameraPos
-        self.cameraOrn = self.camera.cameraOrn
 
-
-    def change_camera_position_orientation(self, camera_position, camera_orientation):
-        self.camera.set_camera_position_orientation(camera_position, camera_orientation)
 
     def AddObject(self, dimension, position, orientation, color):
         """
@@ -96,7 +133,7 @@ class Environment:
         [box_length, box_width, box_depth] = dimension
         object_center = position
         object_orientation = orientation
-        object_color = [*color,1] 
+        object_color = [*color,1]
 
         geomBox = p.createCollisionShape(p.GEOM_BOX, halfExtents=[box_length/2, box_width/2, box_depth/2])
         visualBox = p.createVisualShape(p.GEOM_BOX, halfExtents=[box_length/2, box_width/2, box_depth/2], rgbaColor=object_color)
@@ -130,7 +167,7 @@ if __name__ == "__main__":
     env.AddObject([0.1, 0.1, 0.1], [0, 0, 0.2], [0, 0, 0], [0, 1, 0])
     env.AddObject([0.1, 0.1, 0.1], [0, 0, 0.3], [0, 0, 0], [0, 0, 1])
 
-    while True:
+    while not KeyboardInterrupt:
         p.stepSimulation()
         time.sleep(1/240)
 
