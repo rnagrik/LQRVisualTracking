@@ -1,19 +1,21 @@
-import numpy as np
-from EnvCam import Environment, RobotwithCamera
-from utils import Trajectory
-import pybullet as p
+"""
+It is the main file to run the robot
+"""
 import time
 import cv2
-
+import pybullet as p
+from environment import Environment
+from robot import RobotWithCamera
+from utils import trajectory
 
 
 if __name__ == "__main__":
     env = Environment()
-    robot = RobotwithCamera()
+    robot = RobotWithCamera()
 
-    env.AddObject([0.1, 0.1, 0.1], [0, 0, 0.1], [0, 0, 0], [1, 0, 0])
-    env.AddObject([0.1, 0.1, 0.1], [0, 0, 0.2], [0, 0, 0], [0, 1, 0])
-    env.AddObject([0.1, 0.1, 0.1], [0, 0, 0.3], [0, 0, 0], [0, 0, 1])
+    env.add_object([0.1, 0.1, 0.1], [0, 0, 0.1], [0, 0, 0], [1, 0, 0])
+    env.add_object([0.1, 0.1, 0.1], [0, 0, 0.2], [0, 0, 0], [0, 1, 0])
+    env.add_object([0.1, 0.1, 0.1], [0, 0, 0.3], [0, 0, 0], [0, 0, 1])
 
     while True:
         p.stepSimulation()
@@ -22,10 +24,10 @@ if __name__ == "__main__":
         cv2.imshow("rgb", rgb)
 
         for object_id in env.objects:
-            object_center, object_orientation = Trajectory(object_id, 
-                                                           time.time(), 
-                                                           [0.1*object_id, 0.1*object_id, 0.1], 
+            object_center, object_orientation = trajectory(object_id,
+                                                           time.time(),
+                                                           [0.1*object_id, 0.1*object_id, 0.1],
                                                            [0, 0, 0])
-            env.MoveObject(object_id, object_center, object_orientation)
+            env.move_object(object_id, object_center, object_orientation)
 
         time.sleep(2)
