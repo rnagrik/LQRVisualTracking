@@ -20,6 +20,8 @@ class RobotWithCamera():
             useFixedBase=True
             )
 
+        p.resetBasePositionAndOrientation(self.robot_id, [0, 0, 0], [0, 0, 0, 1])
+
         self.initial_joint_pos = [0, -np.pi/4, np.pi/4,
                                   -np.pi/4, np.pi/4, np.pi/4,
                                   np.pi/4,0,0,
@@ -33,7 +35,6 @@ class RobotWithCamera():
         self.camera_offset = 0.1
         self.camera = CameraModule()
 
-        p.resetBasePositionAndOrientation(self.robot_id, [0, 0, 0], [0, 0, 0, 1])
         # need to do this to initialize robot
         p.stepSimulation()
 

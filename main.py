@@ -29,5 +29,3 @@ if __name__ == "__main__":
                                                            [0.1*object_id, 0.1*object_id, 0.1],
                                                            [0, 0, 0])
             env.move_object(object_id, object_center, object_orientation)
-
-        time.sleep(2)
