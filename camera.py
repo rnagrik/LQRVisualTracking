@@ -140,10 +140,10 @@ class CameraModule:
 
         # scale to get the normalized device coordinates
         uvzw_NDC = uvzw/uvzw[:, 3:]
-
+            
         u = ((uvzw_NDC[:, 0] + 1) / 2.0) * self.camera_width
         v = ((1-uvzw_NDC[:, 1]) / 2.0) * self.camera_height
 
         pixel_position = np.column_stack((u, v)).astype(int)
-
-        return pixel_position
+        z_coordinate = uvzw_NDC[:, 2]
+        return pixel_position, z_coordinate

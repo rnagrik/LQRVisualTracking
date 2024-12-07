@@ -20,6 +20,7 @@ if __name__ == "__main__":
 
     object_locations = np.zeros((len(env.objects), 3))
     while True:
+        robot.set_back_to_initial_position()
         p.stepSimulation()
         time.sleep(1/240)
         rgb, depth = robot.update_camera_feed()

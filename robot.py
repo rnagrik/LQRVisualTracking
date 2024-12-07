@@ -102,10 +102,11 @@ class RobotWithCamera():
         camera_position, camera_orientation = self.get_ee_position()
         self.camera.get_camera_view_and_projection_opencv(camera_position=camera_position, 
                                                           camera_orientation=camera_orientation)
-        pixel_coordinates = self.camera.opengl_plot_world_to_pixelspace(points_in_3d)
+        pixel_coordinates, z_coordinate = self.camera.opengl_plot_world_to_pixelspace(points_in_3d)
         
         objects_in_image_mask = ((pixel_coordinates[:, 0] >= 0) & (pixel_coordinates[:, 0] <= 512) & 
-                          (pixel_coordinates[:, 1] >= 0) & (pixel_coordinates[:, 1] <= 512))
+                          (pixel_coordinates[:, 1] >= 0) & (pixel_coordinates[:, 1] <= 512) &
+                          (z_coordinate < 1))
 
         object_ids_in_frame = object_ids[objects_in_image_mask]
         points_objects_in_frame_3d = points_in_3d[objects_in_image_mask]
@@ -118,6 +119,15 @@ class RobotWithCamera():
             nearest_object = object_ids_in_frame[minimum_distance_index]
             nearest_point = points_objects_in_frame_3d[minimum_distance_index]
             nearest_object_pixel = pixel_coordinates[objects_in_image_mask][minimum_distance_index]
+            print(nearest_object_pixel)
             return nearest_object, nearest_point, nearest_object_pixel
         else:
             return np.array([]), np.array([]), np.array([])
+    
+    def set_back_to_initial_position(self) -> None:
+        """
+        This function sets the robot back to its original_postion
+        """
+        # Reset the robot to initial joint positions
+        for i in range(self.num_link_joints):
+            p.resetJointState(self.robot_id,i,self.initial_joint_pos[i])
