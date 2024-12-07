@@ -14,9 +14,9 @@ if __name__ == "__main__":
     env = Environment()
     robot = RobotWithCamera()
 
-    env.add_object([0.1, 0.1, 0.1], [0, 0, 0.1], [0, 0, 0], [1, 0, 0])
-    env.add_object([0.1, 0.1, 0.1], [0, 0, 0.2], [0, 0, 0], [0, 1, 0])
-    env.add_object([0.1, 0.1, 0.1], [0, 0, 0.3], [0, 0, 0], [0, 0, 1])
+    env.add_object([0.1, 0.1, 0.01], [0, 0, 0.01], [0, 0, 0], [1, 0, 0])
+    env.add_object([0.1, 0.1, 0.01], [0, 0, 0.02], [0, 0, 0], [0, 1, 0])
+    env.add_object([0.1, 0.1, 0.01], [0, 0, 0.03], [0, 0, 0], [0, 0, 1])
 
     object_locations = np.zeros((len(env.objects), 3))
     while True:
@@ -28,7 +28,7 @@ if __name__ == "__main__":
         for object_index, object_id in enumerate(env.objects):
             object_center, object_orientation = trajectory(object_id,
                                                            time.time(),
-                                                           [0.1*object_id, 0.1*object_id, 0.1],
+                                                           [0, 1, 0.5],
                                                            [0, 0, 0])
             env.move_object(object_id, object_center, object_orientation)
             object_locations[object_index, :] = object_center

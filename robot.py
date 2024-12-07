@@ -119,7 +119,6 @@ class RobotWithCamera():
             nearest_object = object_ids_in_frame[minimum_distance_index]
             nearest_point = points_objects_in_frame_3d[minimum_distance_index]
             nearest_object_pixel = pixel_coordinates[objects_in_image_mask][minimum_distance_index]
-            print(nearest_object_pixel)
             return nearest_object, nearest_point, nearest_object_pixel
         else:
             return np.array([]), np.array([]), np.array([])
