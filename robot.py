@@ -3,6 +3,7 @@ This file has the robot class. The robot has a camera that gives RGBD image
 """
 import os
 import numpy as np
+import cv2
 import pybullet as p
 import pybullet_data
 from camera import CameraModule
@@ -86,4 +87,37 @@ class RobotWithCamera():
         '''
         camera_pos, camera_orn = self.get_ee_position()
         rgb, depth = self.camera.get_camera_img_float(camera_pos, camera_orn)
+        rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB) 
         return rgb, depth
+
+    def get_nearest_object_using_camera(self,object_ids: np.ndarray, points_in_3d: np.ndarray) -> tuple:
+        """
+        Gets the object that is nearest to the robot based on camera readings
+        :param object_ids: Array of object ids
+        :param points_in_3d: Correspoding points in 3D world frame. Shape is Nx3
+        :return Returns the object id, object location and location in camera. If no object is visible 
+        it returns empty array
+        """
+
+        camera_position, camera_orientation = self.get_ee_position()
+        self.camera.get_camera_view_and_projection_opencv(camera_position=camera_position, 
+                                                          camera_orientation=camera_orientation)
+        pixel_coordinates = self.camera.opengl_plot_world_to_pixelspace(points_in_3d)
+        
+        objects_in_image_mask = ((pixel_coordinates[:, 0] >= 0) & (pixel_coordinates[:, 0] <= 512) & 
+                          (pixel_coordinates[:, 1] >= 0) & (pixel_coordinates[:, 1] <= 512))
+
+        object_ids_in_frame = object_ids[objects_in_image_mask]
+        points_objects_in_frame_3d = points_in_3d[objects_in_image_mask]
+        
+        if object_ids_in_frame.shape[0] > 0:
+            
+            distance = np.linalg.norm(points_objects_in_frame_3d - camera_position, axis=-1)
+            minimum_distance_index = np.argmin(distance)
+
+            nearest_object = object_ids_in_frame[minimum_distance_index]
+            nearest_point = points_objects_in_frame_3d[minimum_distance_index]
+            nearest_object_pixel = pixel_coordinates[objects_in_image_mask][minimum_distance_index]
+            return nearest_object, nearest_point, nearest_object_pixel
+        else:
+            return np.array([]), np.array([]), np.array([])

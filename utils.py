@@ -15,7 +15,7 @@ def trajectory(object_id: int,
     :param time: the current time
     :param initial_position: list, the initial position of the object
     :param initial_orientation: list, the initial orientation of the object
-    :return A tuple of object position in 3D coordinates and orientation in quarternion 
+    :return A tuple of object position in 3D coordinates (list) and orientation in quarternion 
     """
     [x, y, z] = initial_position
     object_center=[x + object_id*np.sin(np.pi/2+time/10),
