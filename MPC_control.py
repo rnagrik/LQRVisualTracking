@@ -100,4 +100,7 @@ class Control:
         return u
     
 if __name__ == "__main__":
+    """
+    Testing the MPC controller
+    """
     pass
