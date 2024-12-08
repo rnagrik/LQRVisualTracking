@@ -3,7 +3,6 @@ This file has the robot class. The robot has a camera that gives RGBD image
 """
 import os
 import numpy as np
-import cv2
 import pybullet as p
 import pybullet_data
 from camera import CameraModule
@@ -86,8 +85,7 @@ class RobotWithCamera():
         :return Tuple of rgb and depth image
         '''
         camera_pos, camera_orn = self.get_ee_position()
-        rgb, depth = self.camera.get_camera_img_float(camera_pos, camera_orn)
-        rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB) 
+        rgb, depth = self.camera.get_camera_img_float(camera_pos, camera_orn) 
         return rgb, depth
 
     def get_nearest_object_using_camera(self,object_ids: np.ndarray, points_in_3d: np.ndarray) -> tuple:
@@ -122,7 +120,7 @@ class RobotWithCamera():
             distance = np.linalg.norm(points_objects_in_frame_3d - camera_position, axis=-1)
             minimum_distance_index = np.argmin(distance)
 
-            nearest_object = object_ids_in_frame[minimum_distance_index]
+            nearest_object = np.array([object_ids_in_frame[minimum_distance_index]])
             nearest_point = points_objects_in_frame_3d[minimum_distance_index]
             nearest_object_pixel = pixel_coordinates[objects_in_image_mask][minimum_distance_index]
             return nearest_object, nearest_point, nearest_object_pixel
@@ -136,3 +134,90 @@ class RobotWithCamera():
         # Reset the robot to initial joint positions
         for i in range(self.num_link_joints):
             p.resetJointState(self.robot_id,i,self.initial_joint_pos[i])
+
+
+class HangingCamera():
+    """
+    This class is for the Camera without a robot
+    """
+
+    def __init__(self,
+                 initial_camera_position: np.ndarray, 
+                 initial_camera_orientation: np.ndarray):
+        
+        self.step_time = 1/240
+        self.camera_position = initial_camera_position
+        self.camera_orientation = initial_camera_orientation
+        self.camera = CameraModule()
+    
+    def move_robot(self, control_input: np.ndarray):
+        """
+        This function moves the robot given the control input
+        :param control_input: It is the control input to the robot shape (6,)
+        (x_dot, y_dot, z_dot, umega_x, umega_y, umega_z)
+        :return None. Sets the robot position and orientation in place
+        """
+        
+        self.camera_position = self.camera_position + control_input[:3]*self.step_time
+        change_angle_camera_frame = self.step_time*self.camera_orientation.T @ control_input[3:]
+        required_quaternion = p.getQuaternionFromEuler(change_angle_camera_frame)
+        required_new_matrix = p.getMatrixFromQuaternion(required_quaternion)    
+        change_in_orientation = np.array([[required_new_matrix[0], required_new_matrix[1], required_new_matrix[2]], 
+                                        [required_new_matrix[3], required_new_matrix[4], required_new_matrix[5]], 
+                                        [required_new_matrix[6], required_new_matrix[7], required_new_matrix[8]]])
+        self.camera_orientation = self.camera_orientation @ change_in_orientation
+
+    def get_ee_position(self) -> tuple:
+        '''
+        Function to get the end effector position and orientation
+        :return end effector position (np.ndarray) and orientation 3x3 (np.ndarray)
+        '''
+        return self.camera_position, self.camera_orientation
+
+    def update_camera_feed(self) -> tuple:
+        '''
+        Function to update the feed from the camera
+        :return Tuple of rgb and depth image
+        '''
+        camera_pos, camera_orn = self.get_ee_position()
+        rgb, depth = self.camera.get_camera_img_float(camera_pos, camera_orn) 
+        return rgb, depth
+
+    def get_nearest_object_using_camera(self,object_ids: np.ndarray, points_in_3d: np.ndarray) -> tuple:
+        """
+        Gets the object that is nearest to the robot based on camera readings
+        :param object_ids: Array of object ids
+        :param points_in_3d: Correspoding points in 3D world frame. Shape is Nx3
+        :return Returns the object id, object location and location in camera. If no object is visible 
+        it returns empty array
+        """
+
+        # Get Camera Position
+        camera_position, camera_orientation = self.get_ee_position()
+
+        # Set the projection Matrixes
+        self.camera.get_camera_view_and_projection_opencv(camera_position=camera_position, 
+                                                          camera_orientation=camera_orientation)
+
+        # Get the Pixel coordinates of the objects
+        pixel_coordinates, z_coordinate = self.camera.opengl_plot_world_to_pixelspace(points_in_3d)
+
+        # This code filters and gets the nearest point
+        objects_in_image_mask = ((pixel_coordinates[:, 0] >= 0) & (pixel_coordinates[:, 0] <= 512) & 
+                          (pixel_coordinates[:, 1] >= 0) & (pixel_coordinates[:, 1] <= 512) &
+                          (z_coordinate < 1))
+
+        object_ids_in_frame = object_ids[objects_in_image_mask]
+        points_objects_in_frame_3d = points_in_3d[objects_in_image_mask]
+        
+        if object_ids_in_frame.shape[0] > 0:
+            
+            distance = np.linalg.norm(points_objects_in_frame_3d - camera_position, axis=-1)
+            minimum_distance_index = np.argmin(distance)
+
+            nearest_object = np.array([object_ids_in_frame[minimum_distance_index]])
+            nearest_point = points_objects_in_frame_3d[minimum_distance_index]
+            nearest_object_pixel = pixel_coordinates[objects_in_image_mask][minimum_distance_index]
+            return nearest_object, nearest_point, nearest_object_pixel
+        else:
+            return np.array([]), np.array([]), np.array([])
