@@ -12,8 +12,8 @@ class Control:
         self.ref_state = np.array([[256],[256]])
         self.state_lower_bound = [0, 0]
         self.state_upper_bound = [512, 512]
-        self.control_lower_bound = [-0.5, -0.5, -0.5, -1, -1, -1]
-        self.control_upper_bound = [0.5, 0.5, 0.5, 1, 1, 1]
+        self.control_lower_bound = [-1, -1, -1, -1, -1, -1]
+        self.control_upper_bound = [1, 1, 1, 1, 1, 1]
         self.Q = 0.5*np.eye(2)
         self.R = np.eye(6)
         self.tempCamera = CameraModule()
@@ -190,6 +190,7 @@ if __name__ == "__main__":
         for pixel_idx in range(nearest_pixel.shape[0]):
             pixel_location = (int(nearest_pixel[0]), int(nearest_pixel[1]))
             cv2.circle(rgb, pixel_location, 4, (0, 0, 0), -1)
+            cv2.circle(rgb, (256, 256), 4, (255, 0, 255), -1)
         
         # Get current camera pose
         cam_pos, cam_orientation = robot.get_ee_position()
