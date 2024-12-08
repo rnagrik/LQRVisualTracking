@@ -157,6 +157,7 @@ class HangingCamera():
         (x_dot, y_dot, z_dot, umega_x, umega_y, umega_z)
         :return None. Sets the robot position and orientation in place
         """
+        
         self.camera_position = self.camera_position + control_input[:3]*self.step_time
         change_angle_camera_frame = self.step_time*self.camera_orientation.T @ control_input[3:]
         required_quaternion = p.getQuaternionFromEuler(change_angle_camera_frame)

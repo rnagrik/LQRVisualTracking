@@ -209,7 +209,7 @@ if __name__ == "__main__":
             u = controller.performControl(current_ee_orientation=cam_orientation,
                                         current_ee_position=cam_pos,
                                         nearest_object_trajectory_params=nearest_obj_params)
-        robot.move_robot(np.array(u))
+        robot.move_robot(np.array(u[:, 0]))
         
         p.stepSimulation()
         time.sleep(1/240)
