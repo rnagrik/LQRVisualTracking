@@ -135,6 +135,41 @@ class RobotWithCamera():
         for i in range(self.num_link_joints):
             p.resetJointState(self.robot_id,i,self.initial_joint_pos[i])
 
+    def get_robot_jacobian(self):
+        """
+        This function returns the jacobian of the robot
+        """
+
+        joint_states = p.getJointStates(self.robot_id, range(self.num_link_joints))
+        joint_infos = [p.getJointInfo(self.robot_id, i) for i in range(self.num_link_joints)]
+        joint_states = [j for j, i in zip(joint_states, joint_infos) if i[3] > -1]
+        joint_positions = [state[0] for state in joint_states]
+
+        zero_vec = [0.0]*len(joint_positions)
+        linearJacobian, angularJacobian = p.calculateJacobian(self.robot_id, 
+                                                              self.num_active_joints,
+                                                              [0,0,self.camera_offset],
+                                                              joint_positions, 
+                                                              zero_vec,
+                                                              zero_vec)
+        Jacobian = np.vstack((linearJacobian,angularJacobian))
+        return Jacobian[:,:self.num_active_joints]  
+
+    def move_robot(self, control_input: np.ndarray):
+        """
+        This function moves the robot given the control input
+        :param control_input: It is the control input to the robot shape (6,)
+        (x_dot, y_dot, z_dot, omega_x, omega_y, omega_z)
+        :return None. Sets the robot position and orientation in place
+        """
+        jacobian = self.get_robot_jacobian()
+        joint_velocities = np.linalg.pinv(jacobian) @ control_input
+        
+        for i in range(self.num_active_joints):
+            p.setJointMotorControl2(self.robot_id, i, p.VELOCITY_CONTROL, targetVelocity=joint_velocities[i])
+
+
+
 
 class HangingCamera():
     """
