@@ -11,6 +11,17 @@ class CameraModule:
     Camera class with the vision functions
     """
     def __init__(self):
+        self.camera_width = None
+        self.camera_height = None
+        self.camera_fov = None
+        self.camera_near = None
+        self.camera_far = None
+        # focal depth in pixel space
+        self.camera_focal_depth = None
+        #aspect ratio
+        self.camera_aspect = None
+        self.view_matrix: np.ndarray = None
+        self.projection_matrix: np.ndarray = None
         self.set_camera_settings()
 
     def set_camera_settings(self,
@@ -81,3 +92,58 @@ class CameraModule:
         depth_image = np.array(depth_img_linearized, dtype=np.float32)
 
         return rgb_image, depth_image
+
+    def get_camera_view_and_projection_opencv(self,
+                                              camera_position: np.ndarray,
+                                              camera_orientation: np.ndarray):
+        '''
+        Gets the view and projection matrix for a camera at 
+        position (3) and orientation (3x3)
+        :param camera_position: Position of the camera
+        :param camera_orientation: Orientation of the camera
+        :return None
+        '''
+
+        camera_view_matrix_opengl = p.computeViewMatrix(
+            cameraEyePosition=camera_position,
+            cameraTargetPosition=camera_position+camera_orientation[:,2],
+            cameraUpVector=-camera_orientation[:,1])
+
+        camera_projection_matrix_opengl = p.computeProjectionMatrixFOV(
+            self.camera_fov,
+            self.camera_aspect,
+            self.camera_near,
+            self.camera_far
+            )
+
+        #returns camera view and projection matrices in a form that fits openCV
+        self.view_matrix = np.array(camera_view_matrix_opengl).reshape(4,4).T
+        self.projection_matrix = np.array(camera_projection_matrix_opengl).reshape(4,4).T
+    
+    def opengl_plot_world_to_pixelspace(self, pts_in_3D_to_project: np.ndarray) -> np.ndarray:
+        ''' 
+        Plots a x,y,z location in the world in an openCV image
+        This is used for debugging, e.g. given a known location in the world, verify it appears in the camera
+        when using p.getCameraImage(...). The output [u,v], when plot with opencv, should line up with object 
+        in the image from p.getCameraImage(...)
+        :param pts_in_3D_to_project: Points in 3D space. Shape is Nx3
+        :return numpy array of pixel position. Shape is Nx2
+        '''
+        pt_in_3D_to_project = np.hstack((pts_in_3D_to_project,
+                                         np.ones((pts_in_3D_to_project.shape[0], 1)))
+                                         )
+
+        pt_in_3D_in_camera_frame = (self.view_matrix @ pt_in_3D_to_project.T).T
+
+        # Convert coordinates to get normalized device coordinates (before rescale)
+        uvzw = (self.projection_matrix @ pt_in_3D_in_camera_frame.T).T
+
+        # scale to get the normalized device coordinates
+        uvzw_NDC = uvzw/uvzw[:, 3:]
+            
+        u = ((uvzw_NDC[:, 0] + 1) / 2.0) * self.camera_width
+        v = ((1-uvzw_NDC[:, 1]) / 2.0) * self.camera_height
+
+        pixel_position = np.column_stack((u, v)).astype(int)
+        z_coordinate = uvzw_NDC[:, 2]
+        return pixel_position, z_coordinate
