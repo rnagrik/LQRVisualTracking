@@ -145,15 +145,21 @@ class HangingCamera():
                  initial_camera_position: np.ndarray, 
                  initial_camera_orientation: np.ndarray):
         
-
+        self.step_time = 1/240
         self.camera_position = initial_camera_position
         self.camera_orientation = initial_camera_orientation
         self.camera = CameraModule()
     
     def move_robot(self, control_input: np.ndarray):
-        self.cameraPosition = self.cameraPosition + control_input[:3]
-        required_quaternion = p.getQuaternionFromEuler(control_input[3:])
-    
+        """
+        This function moves the robot given the control input
+        :param control_input: It is the control input to the robot shape (6,)
+        (x_dot, y_dot, z_dot, umega_x, umega_y, umega_z)
+        :return None. Sets the robot position and orientation in place
+        """
+        self.cameraPosition = self.cameraPosition + control_input[:3]*self.step_time
+        change_angle_camera_frame = self.step_time*self.camera_orientation.T @ control_input[3:]
+        required_quaternion = p.getQuaternionFromEuler(change_angle_camera_frame)
         required_new_matrix = p.getMatrixFromQuaternion(required_quaternion)    
         change_in_orientation = np.array([[required_new_matrix[0], required_new_matrix[1], required_new_matrix[2]], 
                                         [required_new_matrix[3], required_new_matrix[4], required_new_matrix[5]], 
