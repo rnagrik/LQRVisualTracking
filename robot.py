@@ -99,11 +99,17 @@ class RobotWithCamera():
         it returns empty array
         """
 
+        # Get Camera Position
         camera_position, camera_orientation = self.get_ee_position()
+
+        # Set the projection Matrixes
         self.camera.get_camera_view_and_projection_opencv(camera_position=camera_position, 
                                                           camera_orientation=camera_orientation)
+
+        # Get the Pixel coordinates of the objects
         pixel_coordinates, z_coordinate = self.camera.opengl_plot_world_to_pixelspace(points_in_3d)
-        
+
+        # This code filters and gets the nearest point
         objects_in_image_mask = ((pixel_coordinates[:, 0] >= 0) & (pixel_coordinates[:, 0] <= 512) & 
                           (pixel_coordinates[:, 1] >= 0) & (pixel_coordinates[:, 1] <= 512) &
                           (z_coordinate < 1))
