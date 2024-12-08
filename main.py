@@ -59,7 +59,7 @@ if __name__ == "__main__":
         # Get control and move the robot
         print("Nearest Object : ", nearest_object)
         if nearest_object.shape[0] == 0:
-            u = [0,0,0,0,0,0]
+            u = [[0],[0],[0],[0],[0],[0]]
         else :
             nearest_obj_params = {"object_id": nearest_object[0],
                               "current_simulation_time": sim_time,
