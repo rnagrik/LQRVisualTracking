@@ -3,6 +3,7 @@ This file contains the camera class which
 contains the functions related to computer vision and perception
 """
 import numpy as np
+import cv2
 import pybullet as p
 
 
@@ -90,7 +91,7 @@ class CameraModule:
 
         rgb_image = np.array(rgb_img[:,:,:3], dtype=np.uint8)
         depth_image = np.array(depth_img_linearized, dtype=np.float32)
-
+        rgb_image = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2RGB)
         return rgb_image, depth_image
 
     def get_camera_view_and_projection_opencv(self,
