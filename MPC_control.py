@@ -27,7 +27,7 @@ class Control:
         """
         object_id = trajectory_params["object_id"]
         current_time = trajectory_params["current_simulation_time"] + current_iteration*self.time_step
-        initial_position = trajectory_params["intial_position"]
+        initial_position = trajectory_params["initial_position"]
         initial_orientation = trajectory_params["initial_orientation"]
         object_center, _ = trajectory(object_id,
                                       current_time,
@@ -196,6 +196,7 @@ if __name__ == "__main__":
                               "initial_orientation": [0, 0, 0]}
 
         # Get control and move the robot
+        print("Nearest Object : ", nearest_object)
         if nearest_object.shape[0] == 0:
             u = [0,0,0,0,0,0]
         else :

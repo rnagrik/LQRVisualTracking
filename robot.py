@@ -120,7 +120,7 @@ class RobotWithCamera():
             distance = np.linalg.norm(points_objects_in_frame_3d - camera_position, axis=-1)
             minimum_distance_index = np.argmin(distance)
 
-            nearest_object = object_ids_in_frame[minimum_distance_index]
+            nearest_object = np.array([object_ids_in_frame[minimum_distance_index]])
             nearest_point = points_objects_in_frame_3d[minimum_distance_index]
             nearest_object_pixel = pixel_coordinates[objects_in_image_mask][minimum_distance_index]
             return nearest_object, nearest_point, nearest_object_pixel
@@ -214,7 +214,7 @@ class HangingCamera():
             distance = np.linalg.norm(points_objects_in_frame_3d - camera_position, axis=-1)
             minimum_distance_index = np.argmin(distance)
 
-            nearest_object = object_ids_in_frame[minimum_distance_index]
+            nearest_object = np.array([object_ids_in_frame[minimum_distance_index]])
             nearest_point = points_objects_in_frame_3d[minimum_distance_index]
             nearest_object_pixel = pixel_coordinates[objects_in_image_mask][minimum_distance_index]
             return nearest_object, nearest_point, nearest_object_pixel
