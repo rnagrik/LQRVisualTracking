@@ -3,7 +3,7 @@ import casadi as ca
 import pybullet as p
 import cv2
 from camera import CameraModule
-from utils import trajectory
+from utils import trajectory, update_orientation_from_angles
 
 class Control:
     def __init__(self, N, time_step):
@@ -51,8 +51,12 @@ class Control:
         """
         # get the position of the camera in the world frame given the control input
         new_ee_position = current_ee_position + self.time_step*U[:3]    
-        change_orientation_local_frame = self.time_step*current_ee_orientation.T @ U[3:]
-        new_ee_orientation = ... # Get new orientation from change in angles in local frame
+        change_angles_local_frame = self.time_step*current_ee_orientation.T @ U[3:]
+        
+        # Get new orientation from change in angles in local frame
+        new_ee_orientation =  update_orientation_from_angles(
+            current_ee_orientation,
+            change_angles_local_frame)
 
         # calculate the pixel co-ordinates of the object given the positions of the the object and the camera
         self.tempCamera.get_camera_view_and_projection_opencv(
