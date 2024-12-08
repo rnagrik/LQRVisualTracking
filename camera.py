@@ -104,10 +104,21 @@ class CameraModule:
         :return None
         '''
 
-        camera_view_matrix_opengl = p.computeViewMatrix(
-            cameraEyePosition=camera_position,
-            cameraTargetPosition=camera_position+camera_orientation[:,2],
-            cameraUpVector=-camera_orientation[:,1])
+        # Get view Matrix
+        
+        # Not using this for cassadi 
+        # camera_view_matrix_opengl = p.computeViewMatrix(
+        #     cameraEyePosition=camera_position,
+        #     cameraTargetPosition=camera_position+camera_orientation[:,2],
+        #     cameraUpVector=-camera_orientation[:,1])
+        # self.view_matrix = np.array(camera_view_matrix_opengl).reshape(4,4).T
+
+        # Using this instead
+        self.view_matrix = np.zeros((4,4))
+        self.view_matrix[3, 3] = 1
+        self.view_matrix[:3, :3] = camera_orientation.T
+        self.view_matrix[:3, 3] = -1*(camera_orientation.T @ camera_position)
+        self.view_matrix[1:3, :] = -1*self.view_matrix[1:3, :]
 
         camera_projection_matrix_opengl = p.computeProjectionMatrixFOV(
             self.camera_fov,
@@ -117,8 +128,8 @@ class CameraModule:
             )
 
         #returns camera view and projection matrices in a form that fits openCV
-        self.view_matrix = np.array(camera_view_matrix_opengl).reshape(4,4).T
         self.projection_matrix = np.array(camera_projection_matrix_opengl).reshape(4,4).T
+        
     
     def opengl_plot_world_to_pixelspace(self, pts_in_3D_to_project: np.ndarray) -> np.ndarray:
         ''' 
