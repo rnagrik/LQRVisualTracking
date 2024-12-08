@@ -157,14 +157,14 @@ class HangingCamera():
         (x_dot, y_dot, z_dot, umega_x, umega_y, umega_z)
         :return None. Sets the robot position and orientation in place
         """
-        self.cameraPosition = self.cameraPosition + control_input[:3]*self.step_time
+        self.camera_position = self.camera_position + control_input[:3]*self.step_time
         change_angle_camera_frame = self.step_time*self.camera_orientation.T @ control_input[3:]
         required_quaternion = p.getQuaternionFromEuler(change_angle_camera_frame)
         required_new_matrix = p.getMatrixFromQuaternion(required_quaternion)    
         change_in_orientation = np.array([[required_new_matrix[0], required_new_matrix[1], required_new_matrix[2]], 
                                         [required_new_matrix[3], required_new_matrix[4], required_new_matrix[5]], 
                                         [required_new_matrix[6], required_new_matrix[7], required_new_matrix[8]]])
-        self.cameraOrientation = self.cameraOrientation @ change_in_orientation
+        self.camera_orientation = self.camera_orientation @ change_in_orientation
 
     def get_ee_position(self) -> tuple:
         '''

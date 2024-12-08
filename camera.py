@@ -115,10 +115,10 @@ class CameraModule:
         # self.view_matrix = np.array(camera_view_matrix_opengl).reshape(4,4).T
 
         # Using this instead
-        self.view_matrix = np.zeros((4,4))
-        self.view_matrix[3, 3] = 1
-        self.view_matrix[:3, :3] = camera_orientation.T
-        self.view_matrix[:3, 3] = -1*(camera_orientation.T @ camera_position)
+        self.view_matrix = camera_orientation.T        
+        self.view_matrix = np.hstack((self.view_matrix, (-1*(camera_orientation.T @ camera_position)).reshape(3,1)))
+        self.view_matrix = np.vstack((self.view_matrix, np.array([[0, 0, 0, 1]])))
+        
         self.view_matrix[1:3, :] = -1*self.view_matrix[1:3, :]
 
         camera_projection_matrix_opengl = p.computeProjectionMatrixFOV(
@@ -156,6 +156,6 @@ class CameraModule:
         u = ((uvzw_NDC[:, 0] + 1) / 2.0) * self.camera_width
         v = ((1-uvzw_NDC[:, 1]) / 2.0) * self.camera_height
 
-        pixel_position = np.column_stack((u, v)).astype(int)
+        pixel_position = np.column_stack((u, v))
         z_coordinate = uvzw_NDC[:, 2]
         return pixel_position, z_coordinate

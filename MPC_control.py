@@ -33,7 +33,9 @@ class Control:
                                       current_time,
                                       initial_position,
                                       initial_orientation)
+        
         object_center = np.array(object_center)[np.newaxis, :]
+        
         return object_center
 
     def motionModel(self, 
@@ -100,18 +102,21 @@ class Control:
             # get the next state given the control and the object location in world frame
             predicted_state, current_ee_position, current_ee_orientation = self.motionModel(
                 objectWorldCoords,
-                np.array([U[0,i], U[1,i], U[2,i], U[3,i], U[4,i], U[5,i]]),
+                np.array([U[0,i-1], U[1,i-1], U[2,i-1], U[3,i-1], U[4,i-1], U[5,i-1]]),
                 current_ee_position,
                 current_ee_orientation
             )
 
             # calculate the error in state and add to the objective
             state_error = self.ref_state - predicted_state
-            obj += state_error.T @ self.Q @ state_error + U[:,i].T @ self.R @ U[:,i]
+            a = state_error.T @ self.Q @ state_error
+            b  = U[:,i-1].T @ self.R @ U[:,i-1]            
+            obj += a[0,0] + b[0,0]
+            # obj += state_error.T @ self.Q @ state_error + U[:,i].T @ self.R @ U[:,i]
 
             # add the predicted state and the bounds to casadi objects
-            g.append(predicted_state[0]); lbg.append(self.state_lower_bound[0]); ubg.append(self.state_upper_bound[0])
-            g.append(predicted_state[1]); lbg.append(self.state_lower_bound[1]); ubg.append(self.state_upper_bound[1])
+            g.append(predicted_state[0,0]); lbg.append(self.state_lower_bound[0]); ubg.append(self.state_upper_bound[0])
+            g.append(predicted_state[1,0]); lbg.append(self.state_lower_bound[1]); ubg.append(self.state_upper_bound[1])
             lbx.append(self.control_lower_bound[0]); ubx.append(self.control_upper_bound[0])
             lbx.append(self.control_lower_bound[1]); ubx.append(self.control_upper_bound[1])
             lbx.append(self.control_lower_bound[2]); ubx.append(self.control_upper_bound[2])
@@ -183,23 +188,24 @@ if __name__ == "__main__":
             points_in_3d=object_locations)
 
         for pixel_idx in range(nearest_pixel.shape[0]):
-            pixel_location = (nearest_pixel[0], nearest_pixel[1])
+            pixel_location = (int(nearest_pixel[0]), int(nearest_pixel[1]))
             cv2.circle(rgb, pixel_location, 4, (0, 0, 0), -1)
         
         # Get current camera pose
         cam_pos, cam_orientation = robot.get_ee_position()
 
         # Get parameters of the nearest object to track        
-        nearest_obj_params = {"object_id": nearest_object,
-                              "current_simulation_time": sim_time,
-                              "initial_position": [0, 1, 0.5],
-                              "initial_orientation": [0, 0, 0]}
+        
 
         # Get control and move the robot
         print("Nearest Object : ", nearest_object)
         if nearest_object.shape[0] == 0:
             u = [0,0,0,0,0,0]
         else :
+            nearest_obj_params = {"object_id": nearest_object[0],
+                              "current_simulation_time": sim_time,
+                              "initial_position": [0, 1, 0.5],
+                              "initial_orientation": [0, 0, 0]}
             u = controller.performControl(current_ee_orientation=cam_orientation,
                                         current_ee_position=cam_pos,
                                         nearest_object_trajectory_params=nearest_obj_params)

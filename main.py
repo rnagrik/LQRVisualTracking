@@ -38,7 +38,7 @@ if __name__ == "__main__":
             points_in_3d=object_locations)
 
         for pixel_idx in range(nearest_pixel.shape[0]):
-            pixel_location = (nearest_pixel[0], nearest_pixel[1])
+            pixel_location = (int(nearest_pixel[0]), int(nearest_pixel[1]))
             cv2.circle(rgb, pixel_location, 4, (0, 0, 0), -1)
         cv2.imshow("rgb", rgb)
         cv2.waitKey(1)
