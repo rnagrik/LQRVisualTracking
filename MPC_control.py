@@ -1,11 +1,12 @@
 import numpy as np
 import casadi as ca
 import pybullet as p
+import cv2
 from camera import CameraModule
 from utils import trajectory
 
 class Control:
-    def __init__(self, N, time_step, sim_time):
+    def __init__(self, N, time_step):
         self.N = N # prediction horizon
         self.time_step = time_step # simulation time step
         self.ref_state = np.array([[256],[256]])
@@ -13,7 +14,7 @@ class Control:
         self.state_upper_bound = [512, 512]
         self.control_lower_bound = [-0.5, -0.5, -0.5, -1, -1, -1]
         self.control_upper_bound = [0.5, 0.5, 0.5, 1, 1, 1]
-        self.Q = 0.5*np.eye(6)
+        self.Q = 0.5*np.eye(2)
         self.R = np.eye(6)
         self.tempCamera = CameraModule()
 
@@ -88,7 +89,7 @@ class Control:
         
 
         # set the casadi objects in loop        
-        for i in range (self.N) :
+        for i in range (1,self.N+1) :
 
             # get the co-ordinates of the object in the world frame at time i+sim_time
             objectWorldCoords = self.getObjectCoords(nearest_object_trajectory_params, i)
@@ -117,7 +118,7 @@ class Control:
         opt_variables = ca.vertcat(ca.reshape(U,-1,1))
 
         # initial guess for inputs and states
-        u0 = ...
+        u0 = np.array([0, 0, 0, 0, 0, 0]*self.N).reshape(-1, 6).T
 
         # define optimization solver
         nlp = {'f':obj, 'x':opt_variables, 'g':ca.vertcat(*g)}
@@ -146,6 +147,7 @@ if __name__ == "__main__":
     from robot import HangingCamera
     import time
 
+    sim_time = 0
     env = Environment()
     initial_camera_position = np.array([0,0.5,1])
     initial_camera_orientation = np.array([[1,0,0],
@@ -154,8 +156,7 @@ if __name__ == "__main__":
     robot = HangingCamera(initial_camera_position, initial_camera_orientation)
 
     controller = Control(N=10,
-                         time_step=1/240,
-                         sim_time=None)
+                         time_step=1/240)
     
     env.add_object([0.1, 0.1, 0.01], [0, 0, 0.01], [0, 0, 0], [1, 0, 0])
     env.add_object([0.1, 0.1, 0.01], [0, 0, 0.02], [0, 0, 0], [0, 1, 0])
@@ -167,7 +168,7 @@ if __name__ == "__main__":
 
         for object_index, object_id in enumerate(env.objects):
             object_center, object_orientation = trajectory(object_id,
-                                                           time.time(),
+                                                           sim_time,
                                                            [0, 1, 0.5],
                                                            [0, 0, 0])
             env.move_object(object_id, object_center, object_orientation)
@@ -181,10 +182,28 @@ if __name__ == "__main__":
             pixel_location = (nearest_pixel[0], nearest_pixel[1])
             cv2.circle(rgb, pixel_location, 4, (0, 0, 0), -1)
         
-        # Get control and Move it
-        # robot.move_robot(control)
+        # Get current camera pose
+        cam_pos, cam_orientation = robot.get_ee_position()
+
+        # Get parameters of the nearest object to track        
+        nearest_obj_params = {"object_id": nearest_object,
+                              "current_simulation_time": sim_time,
+                              "initial_position": [0, 1, 0.5],
+                              "initial_orientation": [0, 0, 0]}
+
+        # Get control and move the robot
+        if nearest_object.shape[0] == 0:
+            u = [0,0,0,0,0,0]
+        else :
+            u = controller.performControl(current_ee_orientation=cam_orientation,
+                                        current_ee_position=cam_pos,
+                                        nearest_object_trajectory_params=nearest_obj_params)
+        robot.move_robot(np.array(u))
+        
         p.stepSimulation()
         time.sleep(1/240)
+
+        sim_time += 1/240
         
         cv2.imshow("rgb", rgb)
         cv2.waitKey(1)
