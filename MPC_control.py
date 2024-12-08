@@ -1,47 +1,82 @@
 import numpy as np
 import casadi as ca
 import pybullet as p
-from camera import *
-from utils import *
+from camera import CameraModule
+from utils import trajectory
 
 class Control:
     def __init__(self, N, time_step, sim_time):
         self.N = N # prediction horizon
         self.time_step = time_step # simulation time step
-        self.sim_time = sim_time # current simulation time step
-        self.ref_state = np.array([[0],[0]])
-        self.state_lower_bound = [...]
-        self.state_upper_bound = [...]
-        self.control_lower_bound = [...]
-        self.control_upper_bound = [...]
-        self.Q = np.array(...)
-        self.R = np.array(...)
+        self.ref_state = np.array([[256],[256]])
+        self.state_lower_bound = [0, 0]
+        self.state_upper_bound = [512, 512]
+        self.control_lower_bound = [-0.5, -0.5, -0.5, -1, -1, -1]
+        self.control_upper_bound = [0.5, 0.5, 0.5, 1, 1, 1]
+        self.Q = 0.5*np.eye(6)
+        self.R = np.eye(6)
         self.tempCamera = CameraModule()
 
-    def getObjectCoords(self, object_id, i):
-        pass
+    def getObjectCoords(self, trajectory_params: dict, current_iteration: int) -> np.ndarray:
+        """
+        This function calculates the trjaectory of the object at the given time instance
+        :params trajectory_params: all the information required for trajectory information
+        :params current_iteration: current iteration at which we need the object location
+        :return trajectory of object at the given location shape (1x3)
+        """
+        object_id = trajectory_params["object_id"]
+        current_time = trajectory_params["current_simulation_time"] + current_iteration*self.time_step
+        initial_position = trajectory_params["intial_position"]
+        initial_orientation = trajectory_params["initial_orientation"]
+        object_center, _ = trajectory(object_id,
+                                      current_time,
+                                      initial_position,
+                                      initial_orientation)
+        object_center = np.array(object_center)[np.newaxis, :]
+        return object_center
 
-    def motionModel(self, objectWorldCoords, U, current_ee_pose):
-        # curr_ -> current state of the object (u,v) pixels
-        # objectWorldCoords -> (x,y,z) in the NEXT time step of the object in the world frame
-        # U -> input given to camera (xdot, ydot, zdot, rolldot, pitchdot, yawdot) (np.array)
-        # current_ee_pose -> current pose of the camera (x, y, z, roll, pitch, yaw) (np.array)
-        # return : (u*, v*)
-
+    def motionModel(self, 
+                    objectWorldCoords: np.ndarray,
+                    U: np.ndarray, 
+                    current_ee_position:np.ndarray,
+                    current_ee_orientation:np.ndarray) -> tuple:
+        """
+        This function is the motion model for the problem. Calculates the next state.
+        :param objectWorldCoords: (x,y,z) in the NEXT time step of the object in the world frame
+        :param U: input given to camera (xdot, ydot, zdot, rolldot, pitchdot, yawdot)
+        :param current_ee_position: current position of the camera (3, )
+        :param current_ee_orientation: current orientation of the camera (3x3)
+        return : new state of the object in image (u*, v*), new state of the robot
+        """
         # get the position of the camera in the world frame given the control input
-        new_ee_pose = current_ee_pose + self.time_step*U    
+        new_ee_position = current_ee_position + self.time_step*U[:3]    
+        change_orientation_local_frame = self.time_step*current_ee_orientation.T @ U[3:]
+        new_ee_orientation = ... # Get new orientation from change in angles in local frame
 
         # calculate the pixel co-ordinates of the object given the positions of the the object and the camera
-        camera_position = tuple(new_ee_pose[:3])
-        camera_orientation = tuple(new_ee_pose[3:])
-        self.tempCamera.get_camera_view_and_projection_opencv(camera_position=camera_position, camera_orientation=camera_orientation)
-        pixel_coordinates, z_coordinate = self.tempCamera.opengl_plot_world_to_pixelspace(objectWorldCoords)
+        self.tempCamera.get_camera_view_and_projection_opencv(
+            camera_position=new_ee_position,
+            camera_orientation=new_ee_orientation
+            )
+        pixel_coordinates, _ = self.tempCamera.opengl_plot_world_to_pixelspace(objectWorldCoords)
         
-        pixel_coordinates = np.array(pixel_coordinates)
-        pixel_coordinates.reshape(2,1)
-        return pixel_coordinates
+        pixel_coordinates = pixel_coordinates.T
+        # pixel_coordinates.reshape(2,1)
+        return pixel_coordinates, new_ee_position, new_ee_orientation
 
-    def performControl(self, current_ee_pose):
+    def performControl(self, 
+                       current_ee_position: np.ndarray, 
+                       current_ee_orientation: np.ndarray, 
+                       nearest_object_trajectory_params: dict):
+        """
+        This calculates the MPC control. 
+        :param current_ee_position: current position of camera in world frame. (3,) shape
+        :param current_ee_orientation: current orientation of camera in world frame (3x3) shape
+        :param simulation_time: Current simulation time
+        :param nearest_object_trajectory_params: This contains all the information required for getting 
+        trajectory of the object
+        :return control output
+        """
         # initialize stuff
         U = ca.MX.sym('U', 6, self.N)
         g = []     # has predicted states of the next N time steps
@@ -56,10 +91,14 @@ class Control:
         for i in range (self.N) :
 
             # get the co-ordinates of the object in the world frame at time i+sim_time
-            objectWorldCoords = self.getObjectCoords(i)
-
+            objectWorldCoords = self.getObjectCoords(nearest_object_trajectory_params, i)
             # get the next state given the control and the object location in world frame
-            predicted_state = self.motionModel(objectWorldCoords, np.array([U[0,i], U[1,i], U[2,i], U[3,i], U[4,i], U[5,i]]), current_ee_pose)
+            predicted_state, current_ee_position, current_ee_orientation = self.motionModel(
+                objectWorldCoords,
+                np.array([U[0,i], U[1,i], U[2,i], U[3,i], U[4,i], U[5,i]]),
+                current_ee_position,
+                current_ee_orientation
+            )
 
             # calculate the error in state and add to the objective
             state_error = self.ref_state - predicted_state
@@ -114,6 +153,10 @@ if __name__ == "__main__":
                                            [0,0,-1]])
     robot = HangingCamera(initial_camera_position, initial_camera_orientation)
 
+    controller = Control(N=10,
+                         time_step=1/240,
+                         sim_time=None)
+    
     env.add_object([0.1, 0.1, 0.01], [0, 0, 0.01], [0, 0, 0], [1, 0, 0])
     env.add_object([0.1, 0.1, 0.01], [0, 0, 0.02], [0, 0, 0], [0, 1, 0])
     env.add_object([0.1, 0.1, 0.01], [0, 0, 0.03], [0, 0, 0], [0, 0, 1])
