@@ -6,7 +6,7 @@ import pybullet as p
 
 
 def trajectory(object_id: int,
-               time: int,
+               time: float,
                initial_position: list,
                initial_orientation: list) -> tuple:
     """
