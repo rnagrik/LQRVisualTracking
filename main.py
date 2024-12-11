@@ -14,11 +14,11 @@ from baseline_control import PIDControl
 
 
 # Choose controller from ["PID", "MPC1", "MPC2"]
-CONTROLLER = "PID"
+CONTROLLER = "MPC1"
 TIME_STEP = 1/240
-ITERATIONS = 200
+ITERATIONS = 1000
 USE_SAVED_DATA = False
-SAVED_RUN_NUMBER = 1
+SAVED_RUN_NUMBER = -1
 
 
 # Initialize the recorder
@@ -51,6 +51,9 @@ if __name__ == "__main__":
                                 dh_params=robot.DH_params)
     elif CONTROLLER == "PID":
         controller = PIDControl()
+        controller.add_camera_information(focal_length=robot.camera.camera_focal_depth,
+                                          imageWidth=robot.camera.camera_width,
+                                          imageHeight=robot.camera.camera_height)
 
     for i in range(ITERATIONS):
         # Update the camera feed and get the image
@@ -109,7 +112,8 @@ if __name__ == "__main__":
                                            nearest_object_trajectory_params=nearest_obj_params)
                 robot.move_robot2(joint_velocities=np.array(u[:, 0]))
         elif CONTROLLER == "PID":
-            raise NotImplementedError
+            u = controller.getControl(object_loc=nearest_pixel,depth=depth,time_step=TIME_STEP,camera_orientation=cam_orientation)
+            robot.move_robot(velocity=np.array(u[:, 0]))
         else:
             raise ValueError("Invalid Controller")
             
@@ -124,7 +128,8 @@ if __name__ == "__main__":
             video_writer.write(rgb)
 
         if not USE_SAVED_DATA:
-            recorder.record_pixel(nearest_pixel)
+            if nearest_object.shape[0] != 0:
+                recorder.record_pixel(nearest_pixel)
             recorder.record_control(u)
             if i % 10 == 0:
                 recorder.evaluate_controller(show_plot=False, print_error=True)
