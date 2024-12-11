@@ -7,4 +7,5 @@ This project deals with Nearest-Object Tracking using Model-Predictive Control o
 
  ```bash
  git clone https://github.com/rnagrik/MPC-VisualTracking.git
+ cd MPC-VisualTracking
  python3 main.py
