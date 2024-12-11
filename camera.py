@@ -23,6 +23,7 @@ class CameraModule:
         self.camera_aspect = None
         self.view_matrix: np.ndarray = None
         self.projection_matrix: np.ndarray = None
+        self.camera_center: np.ndarray = None
         self.set_camera_settings()
 
     def set_camera_settings(self,
@@ -49,6 +50,8 @@ class CameraModule:
         self.camera_focal_depth = 0.5*self.camera_height/np.tan(0.5*np.pi/180*self.camera_fov)
         #aspect ratio
         self.camera_aspect = self.camera_width/self.camera_height
+        # camera center
+        self.camera_center = np.array([self.camera_width/2, self.camera_height/2])
 
     def get_camera_img_float(self,
                              camera_pos: np.ndarray,
