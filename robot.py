@@ -38,6 +38,15 @@ class RobotWithCamera():
         # need to do this to initialize robot
         p.stepSimulation()
 
+        # get modified DH_params of franka panda in the order of [a,d,alpha,theta]
+        self.DH_params = np.array([[   0    , 0.333 ,     0    ],
+                                   [   0    ,   0   , -np.pi/2 ],
+                                   [   0    , 0.316 ,  np.pi/2 ],
+                                   [ 0.0825 ,   0   ,  np.pi/2 ],
+                                   [-0.0825 , 0.384 , -np.pi/2 ],
+                                   [   0    ,   0   ,  np.pi/2 ],
+                                   [ 0.088  , 0.107 ,  np.pi/2 ]])
+
     def initialize_robot(self) -> tuple:
         """
         Get the number of joints and joint information
@@ -65,7 +74,7 @@ class RobotWithCamera():
 
         return num_link_joints, active_joint_indices, num_active_joints
 
-    def get_ee_position(self) -> tuple:
+    def get_ee_position_orientation(self) -> tuple:
         '''
         Function to get the end effector position and orientation
         :return end effector position (np.ndarray) and orientation 3x3 (np.ndarray)
@@ -84,7 +93,7 @@ class RobotWithCamera():
         Function to update the feed from the camera
         :return Tuple of rgb and depth image
         '''
-        camera_pos, camera_orn = self.get_ee_position()
+        camera_pos, camera_orn = self.get_ee_position_orientation()
         rgb, depth = self.camera.get_camera_img_float(camera_pos, camera_orn) 
         return rgb, depth
 
@@ -98,7 +107,7 @@ class RobotWithCamera():
         """
 
         # Get Camera Position
-        camera_position, camera_orientation = self.get_ee_position()
+        camera_position, camera_orientation = self.get_ee_position_orientation()
 
         # Set the projection Matrixes
         self.camera.get_camera_view_and_projection_opencv(camera_position=camera_position, 
@@ -135,8 +144,61 @@ class RobotWithCamera():
         for i in range(self.num_link_joints):
             p.resetJointState(self.robot_id,i,self.initial_joint_pos[i])
 
+    def get_active_joint_states(self) -> np.ndarray:
+        """
+        This function returns the joint states of the robot
+        """
+        joint_states = p.getJointStates(self.robot_id, self.active_joint_indices)
+        joint_positions = [state[0] for state in joint_states]
+        return np.array(joint_positions)
 
-class HangingCamera():
+    def get_robot_jacobian(self):
+        """
+        This function returns the jacobian of the robot
+        """
+
+        joint_states = p.getJointStates(self.robot_id, range(self.num_link_joints))
+        joint_infos = [p.getJointInfo(self.robot_id, i) for i in range(self.num_link_joints)]
+        joint_states = [j for j, i in zip(joint_states, joint_infos) if i[3] > -1]
+        joint_positions = [state[0] for state in joint_states]
+
+        zero_vec = [0.0]*len(joint_positions)
+        linearJacobian, angularJacobian = p.calculateJacobian(self.robot_id, 
+                                                              self.num_active_joints,
+                                                              [0,0,0],
+                                                              joint_positions, 
+                                                              zero_vec,
+                                                              zero_vec)
+        Jacobian = np.vstack((linearJacobian,angularJacobian))
+        return Jacobian[:,:self.num_active_joints]  
+    
+
+    def move_robot(self, velocity: np.ndarray):
+        """
+        This function moves the robot given the control input
+        :param control_input: It is the control input to the robot shape (6,)
+        (x_dot, y_dot, z_dot, omega_x, omega_y, omega_z)
+        :return None. Sets the robot position and orientation in place
+        """
+        jacobian = self.get_robot_jacobian()
+        joint_velocities = np.linalg.pinv(jacobian) @ velocity
+
+        for i in range(self.num_active_joints):
+            p.setJointMotorControl2(self.robot_id, i, p.VELOCITY_CONTROL, targetVelocity=joint_velocities[i])
+    
+    def move_robot2(self,joint_velocities):
+        """
+        This function moves the robot given the control input
+        :param joint_velocities: Control input, shape (7,)
+        :return None. Sets the robot joint velocities
+        """
+        for i in range(self.num_active_joints):
+            p.setJointMotorControl2(self.robot_id, i, p.VELOCITY_CONTROL, targetVelocity=joint_velocities[i])
+
+
+
+
+class FloatingCamera():
     """
     This class is for the Camera without a robot
     """
@@ -150,7 +212,7 @@ class HangingCamera():
         self.camera_orientation = initial_camera_orientation
         self.camera = CameraModule()
     
-    def move_robot(self, control_input: np.ndarray):
+    def move_robot(self, velocity: np.ndarray):
         """
         This function moves the robot given the control input
         :param control_input: It is the control input to the robot shape (6,)
@@ -158,8 +220,8 @@ class HangingCamera():
         :return None. Sets the robot position and orientation in place
         """
         
-        self.camera_position = self.camera_position + control_input[:3]*self.step_time
-        change_angle_camera_frame = self.step_time*self.camera_orientation.T @ control_input[3:]
+        self.camera_position = self.camera_position + velocity[:3]*self.step_time
+        change_angle_camera_frame = self.step_time*self.camera_orientation.T @ velocity[3:]
         required_quaternion = p.getQuaternionFromEuler(change_angle_camera_frame)
         required_new_matrix = p.getMatrixFromQuaternion(required_quaternion)    
         change_in_orientation = np.array([[required_new_matrix[0], required_new_matrix[1], required_new_matrix[2]], 
@@ -167,7 +229,7 @@ class HangingCamera():
                                         [required_new_matrix[6], required_new_matrix[7], required_new_matrix[8]]])
         self.camera_orientation = self.camera_orientation @ change_in_orientation
 
-    def get_ee_position(self) -> tuple:
+    def get_ee_position_orientation(self) -> tuple:
         '''
         Function to get the end effector position and orientation
         :return end effector position (np.ndarray) and orientation 3x3 (np.ndarray)
@@ -179,7 +241,7 @@ class HangingCamera():
         Function to update the feed from the camera
         :return Tuple of rgb and depth image
         '''
-        camera_pos, camera_orn = self.get_ee_position()
+        camera_pos, camera_orn = self.get_ee_position_orientation()
         rgb, depth = self.camera.get_camera_img_float(camera_pos, camera_orn) 
         return rgb, depth
 
@@ -193,7 +255,7 @@ class HangingCamera():
         """
 
         # Get Camera Position
-        camera_position, camera_orientation = self.get_ee_position()
+        camera_position, camera_orientation = self.get_ee_position_orientation()
 
         # Set the projection Matrixes
         self.camera.get_camera_view_and_projection_opencv(camera_position=camera_position, 

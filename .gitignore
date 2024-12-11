@@ -1,6 +1,3 @@
 __pycache__/
-<<<<<<< HEAD
 .vscode/
-=======
-.vscode/
->>>>>>> 0f871475d774f8a954ffec27cecbd11b01eb62c5
+data/

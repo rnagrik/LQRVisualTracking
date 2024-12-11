@@ -64,6 +64,11 @@ class Environment:
         )
 
         self.objects.append(box_id)
+    
+    def add_default_objects(self) -> None:
+        self.add_object([0.1, 0.1, 0.01], [0, 0, 0.01], [0, 0, 0], [1, 0, 0])
+        self.add_object([0.1, 0.1, 0.01], [0, 0, 0.02], [0, 0, 0], [0, 1, 0])
+        self.add_object([0.1, 0.1, 0.01], [0, 0, 0.03], [0, 0, 0], [0, 0, 1])
 
     def remove_object(self, object_id: int) -> None:
         """
