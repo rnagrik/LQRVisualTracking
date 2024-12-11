@@ -12,11 +12,20 @@ from MPC_control import MPCControl
 from baseline_control import PIDControl
 from utils import trajectory
 from evaluate import Recorder
+import argparse
 
 
+parser = argparse.ArgumentParser(description='Choose a controller for the system.')
+parser.add_argument('--controller', choices=['PID', 'MPC1', 'MPC2'], default='MPC2', 
+    help='Choose the controller from ["PID", "MPC1", "MPC2"]. Default is MPC2.')
+
+args = parser.parse_args()
 
 # Choose controller from ["PID", "MPC1", "MPC2"]
-CONTROLLER = "MPC2"
+CONTROLLER = args.controller
+
+
+print(f'Selected controller: {CONTROLLER}')
 TIME_STEP = 1/240
 ITERATIONS = 3000
 USE_SAVED_DATA = True
