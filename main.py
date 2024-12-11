@@ -2,22 +2,24 @@
 It is the main file to run the robot
 """
 import time
+import os
 import cv2
 import numpy as np
 import pybullet as p
 from environment import Environment
 from robot import RobotWithCamera
-from utils import trajectory
 from MPC_control import MPCControl
-from evaluate import Recorder
 from baseline_control import PIDControl
+from utils import trajectory
+from evaluate import Recorder
+
 
 
 # Choose controller from ["PID", "MPC1", "MPC2"]
-CONTROLLER = "MPC1"
+CONTROLLER = "MPC2"
 TIME_STEP = 1/240
-ITERATIONS = 1000
-USE_SAVED_DATA = False
+ITERATIONS = 3000
+USE_SAVED_DATA = True
 SAVED_RUN_NUMBER = -1
 
 
@@ -26,6 +28,7 @@ recorder = Recorder(controller_type=CONTROLLER)
 if USE_SAVED_DATA:
     recorder.load_data(run=SAVED_RUN_NUMBER)
     print("Loaded Data")
+    recorder.evaluate_controller(show_plot=True, print_error=True)
     # save rgb video using cv2 in mp4 format
     video_writer = cv2.VideoWriter(
         f'{recorder.data_dir}/{CONTROLLER}_{recorder.iter-1}.mp4',  # Output video file name
@@ -43,7 +46,7 @@ if __name__ == "__main__":
     object_locations = np.zeros((len(env.objects), 3))
     sim_time = 0
 
-    # Initialize the robot and the controller
+    # Initialize the robot and define the controller
     robot = RobotWithCamera()
     if CONTROLLER in ["MPC1", "MPC2"]:
         controller = MPCControl(N=10,
@@ -55,6 +58,7 @@ if __name__ == "__main__":
                                           imageWidth=robot.camera.camera_width,
                                           imageHeight=robot.camera.camera_height)
 
+    # Run the simulation loop
     for i in range(ITERATIONS):
         # Update the camera feed and get the image
         rgb, depth = robot.update_camera_feed()

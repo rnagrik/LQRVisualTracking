@@ -326,10 +326,10 @@ class MPCControl:
     
 if __name__ == "__main__":
     """
-    Testing the MPC controller
+    Testing the MPC controller with a floating camera
     """
     from environment import Environment
-    from robot import HangingCamera
+    from robot import FloatingCamera
     import time
 
     sim_time = 0
@@ -338,7 +338,7 @@ if __name__ == "__main__":
     initial_camera_orientation = np.array([[1,0,0],
                                            [0,-1,0],
                                            [0,0,-1]])
-    robot = HangingCamera(initial_camera_position, initial_camera_orientation)
+    robot = FloatingCamera(initial_camera_position, initial_camera_orientation)
 
     controller = MPCControl(N=10,time_step=1./240.)
     

@@ -4,6 +4,9 @@ import os
 
 
 class Recorder:
+    """
+    This class is used to record data and evaluate the controller performance
+    """
     def __init__(self,controller_type=None):
         self.tracking_data = None
         self.control_data = None
@@ -18,7 +21,6 @@ class Recorder:
         while os.path.exists(f'{self.data_dir}/tracking_data_{self.iter}.npy') or os.path.exists(f'{self.data_dir}/control_data_{self.iter}.npy'):
             print(f"Run {self.iter} already exists")
             self.iter += 1
-
 
     def record_pixel(self, pixels):
         pixels = np.array(pixels).reshape((1,2))
@@ -38,7 +40,9 @@ class Recorder:
             self.control_data = np.vstack((self.control_data, control))
 
     def evaluate_controller(self,show_plot=True,print_error=True):
-
+        """
+        Evaluate the controller performance and plot the tracking error over time
+        """
         if self.tracking_data is None:
             print("No Tracking Data Found")
             return
@@ -46,14 +50,16 @@ class Recorder:
         tracking_error = self.tracking_data - self.camera_size/2
         tracking_error = np.linalg.norm(tracking_error, axis=1)
         mean_tracking_error = np.mean(tracking_error)
+        std_dev = np.std(tracking_error)
+        if print_error:
+            print(f"Mean Tracking Error : {mean_tracking_error}")
+            print(f"Standard Deviation : {std_dev}")
         if show_plot:
-            plt.plot(tracking_error,label='Tracking Error vs. Time')
+            plt.plot(tracking_error,label='Tracking Error ')
             plt.xlabel('Time')
             plt.ylabel('Tracking Error')
             plt.legend()
             plt.show()
-        if print_error:
-            print(f"Mean Tracking Error : {mean_tracking_error}")
 
         return mean_tracking_error
 

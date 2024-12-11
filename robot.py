@@ -198,7 +198,7 @@ class RobotWithCamera():
 
 
 
-class HangingCamera():
+class FloatingCamera():
     """
     This class is for the Camera without a robot
     """
