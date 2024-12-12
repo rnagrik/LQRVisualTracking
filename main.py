@@ -36,8 +36,9 @@ SAVED_RUN_NUMBER = -1
 recorder = Recorder(controller_type=CONTROLLER)
 if USE_SAVED_DATA:
     recorder.load_data(run=SAVED_RUN_NUMBER)
-    print("Loaded Data")
+    print(f"Loaded Data for {CONTROLLER}")
     recorder.evaluate_controller(show_plot=True, print_error=True)
+
     # save rgb video using cv2 in mp4 format
     video_writer = cv2.VideoWriter(
         f'{recorder.data_dir}/{CONTROLLER}_{recorder.iter-1}.mp4',  # Output video file name
