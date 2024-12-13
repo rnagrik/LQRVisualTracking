@@ -254,7 +254,16 @@ class MPCControl:
         pixel_coordinates, _ = self.tempCamera.opengl_plot_world_to_pixelspace(objectWorldCoords)        
         pixel_coordinates = pixel_coordinates.T
 
-        return pixel_coordinates, new_joint_position
+        R31 = new_ee_orientation[2, 0]
+        R11 = new_ee_orientation[0, 0]
+        R21 = new_ee_orientation[1, 0]
+        R32 = new_ee_orientation[2, 1]
+        R33 = new_ee_orientation[2, 2]
+    
+        roll = np.arctan2(R32, R33)
+        pitch = np.arctan2(-R31, np.sqrt(R11**2 + R21**2))
+
+        return pixel_coordinates, new_joint_position, roll, pitch, new_ee_position
     
 
     def getControl2(self,
@@ -283,7 +292,7 @@ class MPCControl:
             # get the co-ordinates of the object in the world frame at time i+sim_time
             objectWorldCoords = self.getObjectCoords(nearest_object_trajectory_params, i)
             # get the next state given the control and the object location in world frame
-            predicted_state, current_joint_position = self.motionModel2(
+            predicted_state, current_joint_position, roll, pitch, new_ee_pos = self.motionModel2(
                                                                     objectWorldCoords=objectWorldCoords,
                                                                     U=np.array([U[0,i-1], U[1,i-1], U[2,i-1], U[3,i-1], U[4,i-1], U[5,i-1], U[6,i-1]]),
                                                                     last_joint_position=current_joint_position)
@@ -291,8 +300,9 @@ class MPCControl:
             # calculate the error in state and add to the objective
             state_error = self.ref_state - predicted_state
             a = state_error.T @ self.Q2 @ state_error
-            b  = U[:,i-1].T @ self.R2 @ U[:,i-1]            
-            obj += a[0,0] + b[0,0]
+            b  = U[:,i-1].T @ self.R2 @ U[:,i-1]
+            c = new_ee_pos[:-1].T @ new_ee_pos[:-1]
+            obj += a[0,0] + b[0,0] + c*10000
 
             # add the predicted state and the bounds to casadi objects
             g.append(predicted_state[0,0]); lbg.append(self.image_pixel_lower_bound[0]); ubg.append(self.image_pixel_upper_bound[0])
